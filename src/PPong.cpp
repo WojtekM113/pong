@@ -5,22 +5,25 @@
 #include "SDL3/SDL_rect.h"
 #include "SDL3/SDL_render.h"
 #include "SDL3/SDL_stdinc.h"
+#include "SDL3/SDL_timer.h"
 #include "SDL3/SDL_video.h"
 #include <SDL3/SDL.h>
 
 /*
  * Class prototypes
  */
-
+ 
 class PPlayer
 {
   public:
     static constexpr int kPlayerVel = 10;
-
+    static constexpr int kPlayerWidth = 50;
+    static constexpr int kPlayerHeight = 100;
+    
     PPlayer();
     void setPosition(int x, int y);
     void render();
-    void handleEvent(SDL_Event &e);
+    void handleEvent(SDL_Event &e, int playerID);
     void collide();
     void move();
 
@@ -41,6 +44,7 @@ int const windowHeight = 720;
 bool Init();
 bool loadMedia();
 void close();
+Uint64 frameStartTime{0};
 
 int main(int argc, char *argv[])
 {
@@ -56,11 +60,15 @@ int main(int argc, char *argv[])
         SDL_Event e;
 
         PPlayer player1;
-
+        PPlayer player2;
+        
+        player2.setPosition(windowWidth - 50, 0);
         SDL_zero(e);
-
+        
         while (quit == false)
         {
+            frameStartTime = SDL_GetTicksNS();
+            
             while (SDL_PollEvent(&e) == true)
             {
                 if (e.type == SDL_EVENT_QUIT)
@@ -69,17 +77,31 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    player1.handleEvent(e);
+                    player1.handleEvent(e,1);
+                    player2.handleEvent(e,2);
                 }
             }
             
             player1.move();
+            player2.move();
             
             SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
             SDL_RenderClear(gRenderer);
             SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0xFF);
+            
             player1.render();
+            player2.render();
+            
             SDL_RenderPresent(gRenderer);
+            
+            Uint64 endFrameTime =  SDL_GetTicksNS() - frameStartTime;
+            
+            constexpr Uint64 nsPerFrame = 1000000000/60;
+            if (endFrameTime < nsPerFrame)
+            {
+                SDL_DelayNS(nsPerFrame - endFrameTime);
+                endFrameTime = SDL_GetTicksNS() - frameStartTime;
+            }
         }
         close();
     }
@@ -121,31 +143,60 @@ void close()
  * Class implementations
  */
 
-PPlayer::PPlayer() : mPositionX{0}, mPositionY{0}, mCollisionBox{0, 0, 50, 100}, mVelY{0} {};
-void PPlayer::handleEvent(SDL_Event &e)
+PPlayer::PPlayer() : mPositionX{0}, mPositionY{0}, mCollisionBox{0, 0, kPlayerWidth, kPlayerHeight}, mVelY{0} {};
+void PPlayer::handleEvent(SDL_Event &e, int playerID)
 {
-    if (e.type == SDL_EVENT_KEY_DOWN && e.key.repeat == 0)
-    {
-        switch (e.key.key)
+    if (playerID == 1) {
+        if (e.type == SDL_EVENT_KEY_DOWN && e.key.repeat == 0)
         {
-        case SDLK_W:
-            mVelY += kPlayerVel;
-            break;
-        case SDLK_S:
-            mVelY -= kPlayerVel;
-            break;
+            switch (e.key.key)
+            {
+            case SDLK_W:
+                mVelY -= kPlayerVel;
+                break;
+            case SDLK_S:
+                mVelY += kPlayerVel;
+                break;
+            }
+        }
+        else if (e.type == SDL_EVENT_KEY_UP && e.key.repeat == 0)
+        {
+            switch (e.key.key)
+            {
+            case SDLK_W:
+                mVelY += kPlayerVel;
+                break;
+            case SDLK_S:
+                mVelY -= kPlayerVel;
+                break;
+            }
         }
     }
-    else if (e.type == SDL_EVENT_KEY_UP && e.key.repeat == 0)
+    else if (playerID == 2)
     {
-        switch (e.key.key)
+        if (e.type == SDL_EVENT_KEY_DOWN && e.key.repeat == 0)
         {
-        case SDLK_W:
-            mVelY -= kPlayerVel;
-            break;
-        case SDLK_S:
-            mVelY += kPlayerVel;
-            break;
+            switch (e.key.key)
+            {
+            case SDLK_UP:
+                mVelY -= kPlayerVel;
+                break;
+            case SDLK_DOWN:
+                mVelY += kPlayerVel;
+                break;
+            }
+        }
+        else if (e.type == SDL_EVENT_KEY_UP && e.key.repeat == 0)
+        {
+            switch (e.key.key)
+            {
+            case SDLK_UP:
+                mVelY += kPlayerVel;
+                break;
+            case SDLK_DOWN:
+                mVelY -= kPlayerVel;
+                break;
+            }
         }
     }
 }
@@ -158,4 +209,10 @@ void PPlayer::move()
 {
     mPositionX += mVelY;
     mCollisionBox.y = mPositionX;
+}
+
+void PPlayer::setPosition(int x, int y)
+{
+    mCollisionBox.y = y;
+    mCollisionBox.x = x;
 }
