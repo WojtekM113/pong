@@ -26,10 +26,12 @@ class PPlayer
     void handleEvent(SDL_Event &e, int playerID);
     void collide();
     void move();
-    SDL_FRect getCollider();
+    
+    const SDL_FRect& getCollider() const;
   private:
     int mPositionX;
     int mPositionY;
+    
     int mVelY;
     SDL_FRect mCollisionBox;
 };
@@ -41,8 +43,8 @@ class PBall
 
     PBall();
     void render();
-    void move(const SDL_FRect &boxCollider);
-    bool collide(const SDL_FRect &boxCollider);
+    void move(const SDL_FRect &boxCollider1, const SDL_FRect &boxCollider2);
+    bool collide(const SDL_FRect &boxCollider1, const SDL_FRect &boxCollider2);
     void setPosition(int x, int y);
 
   private:
@@ -57,6 +59,11 @@ SDL_Renderer *gRenderer;
 
 int const windowWidth = 1080;
 int const windowHeight = 720;
+
+int gPlayer1Points;
+int gPlayer2Points;
+
+bool gPointSomething = false;
 
 bool Init();
 bool loadMedia();
@@ -86,6 +93,14 @@ int main(int argc, char *argv[])
 
         while (quit == false)
         {
+            if (gPointSomething)
+            {
+                ball.setPosition(windowWidth / 2 - ball.kBallWidth, windowHeight / 2 - ball.kBallWidth);
+                player1.setPosition(0, 0);
+                player2.setPosition(windowWidth - 50, 0);
+                SDL_zero(e);
+                gPointSomething = false;
+            }
             frameStartTime = SDL_GetTicksNS();
 
             while (SDL_PollEvent(&e) == true)
@@ -101,7 +116,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            ball.move(player1.getCollider());
+            ball.move(player1.getCollider(), player2.getCollider());
 
             player1.move();
             player1.collide();
@@ -256,13 +271,13 @@ void PPlayer::collide()
     }
 }
 
-SDL_FRect PPlayer::getCollider()
+const SDL_FRect& PPlayer::getCollider() const
 {
     return mCollisionBox;
 }
 
 // BALL IMPLEMENTATION
-PBall::PBall() : mVelX{3}, mVelY{3}, mCollisionBox{0, 0, kBallWidth, kBallWidth}
+PBall::PBall() : mVelX{5}, mVelY{5}, mCollisionBox{0, 0, kBallWidth, kBallWidth}
 {
 }
 
@@ -277,10 +292,10 @@ void PBall::setPosition(int x, int y)
     mCollisionBox.y = y;
 }
 
-void PBall::move(const SDL_FRect &boxCollider)
+void PBall::move(const SDL_FRect &boxCollider1, const SDL_FRect &boxCollider2)
 {
 
-    if (mCollisionBox.y + mCollisionBox.h > windowHeight || collide(boxCollider))
+    if (mCollisionBox.y + mCollisionBox.h > windowHeight || collide(boxCollider1, boxCollider2))
     {
         mVelY = -1 * mVelY;
     }
@@ -291,23 +306,36 @@ void PBall::move(const SDL_FRect &boxCollider)
 
     mCollisionBox.y += mVelY;
 
-    if (mCollisionBox.x + mCollisionBox.w > windowWidth || collide(boxCollider))
-    {
-        mVelX = -1 * mVelX;
-    }
-    else if (mCollisionBox.x < 0)
+    if (collide(boxCollider1, boxCollider2))
     {
         mVelX = -1 * mVelX;
     }
     
     mCollisionBox.x += mVelX;
+    
+    if(mCollisionBox.x + mCollisionBox.w > windowWidth)
+    {
+        gPlayer1Points++;
+        gPointSomething = true;
+    }
+    else if(mCollisionBox.x < 0)
+    {
+        gPlayer2Points++;
+        gPointSomething = true;
+    }
 }
 
-bool PBall::collide(const SDL_FRect &boxCollider)
+bool PBall::collide(const SDL_FRect &boxCollider1, const SDL_FRect &boxCollider2)
 {
 
-    if (mCollisionBox.x + mCollisionBox.w > boxCollider.x && mCollisionBox.x < boxCollider.x + boxCollider.w &&
-        mCollisionBox.y + mCollisionBox.h > boxCollider.y && mCollisionBox.y < boxCollider.y + boxCollider.h)
+    if (mCollisionBox.x + mCollisionBox.w > boxCollider1.x && mCollisionBox.x < boxCollider1.x + boxCollider1.w &&
+        mCollisionBox.y + mCollisionBox.h > boxCollider1.y && mCollisionBox.y < boxCollider1.y + boxCollider1.h)
+    {
+        return true;
+    }
+    
+    else if (mCollisionBox.x + mCollisionBox.w > boxCollider2.x && mCollisionBox.x < boxCollider2.x + boxCollider2.w &&
+        mCollisionBox.y + mCollisionBox.h > boxCollider2.y && mCollisionBox.y < boxCollider2.y + boxCollider2.h)
     {
         return true;
     }
@@ -316,3 +344,4 @@ bool PBall::collide(const SDL_FRect &boxCollider)
         return false;
     }
 }
+ 
