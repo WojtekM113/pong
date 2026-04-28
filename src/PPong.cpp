@@ -12,25 +12,42 @@
 /*
  * Class prototypes
  */
- 
+
 class PPlayer
 {
   public:
     static constexpr int kPlayerVel = 10;
     static constexpr int kPlayerWidth = 50;
     static constexpr int kPlayerHeight = 100;
-    
+
     PPlayer();
     void setPosition(int x, int y);
     void render();
     void handleEvent(SDL_Event &e, int playerID);
     void collide();
     void move();
-
+    SDL_FRect getCollider();
   private:
     int mPositionX;
     int mPositionY;
     int mVelY;
+    SDL_FRect mCollisionBox;
+};
+
+class PBall
+{
+  public:
+    static constexpr int kBallWidth = 20;
+
+    PBall();
+    void render();
+    void move(const SDL_FRect &boxCollider);
+    bool collide(const SDL_FRect &boxCollider);
+    void setPosition(int x, int y);
+
+  private:
+    int mVelY;
+    int mVelX;
     SDL_FRect mCollisionBox;
 };
 
@@ -59,16 +76,18 @@ int main(int argc, char *argv[])
         bool quit{false};
         SDL_Event e;
 
+        PBall ball;
         PPlayer player1;
         PPlayer player2;
-        
+
+        ball.setPosition(windowWidth / 2 - ball.kBallWidth, windowHeight / 2 - ball.kBallWidth);
         player2.setPosition(windowWidth - 50, 0);
         SDL_zero(e);
-        
+
         while (quit == false)
         {
             frameStartTime = SDL_GetTicksNS();
-            
+
             while (SDL_PollEvent(&e) == true)
             {
                 if (e.type == SDL_EVENT_QUIT)
@@ -77,26 +96,31 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    player1.handleEvent(e,1);
-                    player2.handleEvent(e,2);
+                    player1.handleEvent(e, 1);
+                    player2.handleEvent(e, 2);
                 }
             }
-            
+
+            ball.move(player1.getCollider());
+
             player1.move();
+            player1.collide();
+
             player2.move();
-            
+            player2.collide();
+
             SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
             SDL_RenderClear(gRenderer);
             SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0x00, 0xFF);
-            
+
             player1.render();
             player2.render();
-            
+            ball.render();
             SDL_RenderPresent(gRenderer);
-            
-            Uint64 endFrameTime =  SDL_GetTicksNS() - frameStartTime;
-            
-            constexpr Uint64 nsPerFrame = 1000000000/60;
+
+            Uint64 endFrameTime = SDL_GetTicksNS() - frameStartTime;
+
+            constexpr Uint64 nsPerFrame = 1000000000 / 60;
             if (endFrameTime < nsPerFrame)
             {
                 SDL_DelayNS(nsPerFrame - endFrameTime);
@@ -143,10 +167,12 @@ void close()
  * Class implementations
  */
 
+// PLAYER IMPLEMENTATION
 PPlayer::PPlayer() : mPositionX{0}, mPositionY{0}, mCollisionBox{0, 0, kPlayerWidth, kPlayerHeight}, mVelY{0} {};
 void PPlayer::handleEvent(SDL_Event &e, int playerID)
 {
-    if (playerID == 1) {
+    if (playerID == 1)
+    {
         if (e.type == SDL_EVENT_KEY_DOWN && e.key.repeat == 0)
         {
             switch (e.key.key)
@@ -207,12 +233,86 @@ void PPlayer::render()
 
 void PPlayer::move()
 {
-    mPositionX += mVelY;
-    mCollisionBox.y = mPositionX;
+    mCollisionBox.y += mVelY;
 }
 
 void PPlayer::setPosition(int x, int y)
 {
     mCollisionBox.y = y;
     mCollisionBox.x = x;
+}
+
+// This could be in move() function
+void PPlayer::collide()
+{
+    if (mCollisionBox.y + kPlayerHeight > windowHeight)
+    {
+        mCollisionBox.y -= mVelY;
+    }
+
+    if (mCollisionBox.y < 0)
+    {
+        mCollisionBox.y -= mVelY;
+    }
+}
+
+SDL_FRect PPlayer::getCollider()
+{
+    return mCollisionBox;
+}
+
+// BALL IMPLEMENTATION
+PBall::PBall() : mVelX{3}, mVelY{3}, mCollisionBox{0, 0, kBallWidth, kBallWidth}
+{
+}
+
+void PBall::render()
+{
+    SDL_RenderFillRect(gRenderer, &mCollisionBox);
+}
+
+void PBall::setPosition(int x, int y)
+{
+    mCollisionBox.x = x;
+    mCollisionBox.y = y;
+}
+
+void PBall::move(const SDL_FRect &boxCollider)
+{
+
+    if (mCollisionBox.y + mCollisionBox.h > windowHeight || collide(boxCollider))
+    {
+        mVelY = -1 * mVelY;
+    }
+    else if (mCollisionBox.y < 0)
+    {
+        mVelY = -1 * mVelY;
+    }
+
+    mCollisionBox.y += mVelY;
+
+    if (mCollisionBox.x + mCollisionBox.w > windowWidth || collide(boxCollider))
+    {
+        mVelX = -1 * mVelX;
+    }
+    else if (mCollisionBox.x < 0)
+    {
+        mVelX = -1 * mVelX;
+    }
+    
+    mCollisionBox.x += mVelX;
+}
+
+bool PBall::collide(const SDL_FRect &boxCollider)
+{
+
+    if (mCollisionBox.x + mCollisionBox.w > boxCollider.x && mCollisionBox.x < boxCollider.x + boxCollider.w &&
+        mCollisionBox.y + mCollisionBox.h > boxCollider.y && mCollisionBox.y < boxCollider.y + boxCollider.h)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
